@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Bidirectional ESC Kontrol Paneli</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f172a;
+        --panel: #182235;
+        --line: #334155;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --danger: #ef4444;
+        --ok: #22c55e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 850px;
+        margin: auto;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 26px;
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 18px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      label {
+        display: block;
+        font-size: 14px;
+        margin-bottom: 6px;
+      }
+      input,
+      button {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        padding: 11px;
+        font-size: 16px;
+      }
+      input {
+        background: #0b1220;
+        color: var(--text);
+      }
+      button {
+        cursor: pointer;
+        background: #233047;
+        color: var(--text);
+      }
+      button.primary {
+        background: var(--accent);
+        color: #001018;
+        font-weight: bold;
+      }
+      button.danger {
+        background: var(--danger);
+        color: white;
+        font-weight: bold;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .status {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #334155;
+        font-size: 14px;
+      }
+      .status.ok {
+        background: var(--ok);
+        color: #04140a;
+      }
+      .big {
+        text-align: center;
+        font-size: 54px;
+        font-weight: bold;
+        margin: 12px 0 4px;
+      }
+      .direction {
+        text-align: center;
+        font-size: 20px;
+        margin-bottom: 18px;
+      }
+      input[type='range'] {
+        padding: 0;
+        accent-color: var(--accent);
+      }
+      .scale {
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 7px;
+      }
+      .buttons {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+      pre {
+        background: #07101d;
+        padding: 12px;
+        border-radius: 10px;
+        min-height: 130px;
+        max-height: 230px;
+        overflow: auto;
+        white-space: pre-wrap;
+        color: #cbd5e1;
+      }
+      .warning {
+        border-left: 4px solid var(--danger);
+        padding-left: 12px;
+        color: #fecaca;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="panel">
+        <h1>Bidirectional ESC Kontrol Paneli</h1>
+        <div class="muted">Arduino Mega + USB Web Serial</div>
+        <p><span id="status" class="status">Bağlı değil</span></p>
+        <div class="grid">
+          <button id="connect" class="primary">USB Seri Bağlan</button>
+          <button id="disconnect" disabled>Bağlantıyı Kes</button>
+          <button id="stop" class="danger" disabled>ACİL NÖTR</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Anlık komut</h2>
+        <div id="pwmValue" class="big">1500 µs</div>
+        <div id="direction" class="direction">NÖTR</div>
+
+        <input
+          id="slider"
+          type="range"
+          min="1000"
+          max="2000"
+          value="1500"
+          step="1"
+          disabled
+        />
+        <div class="scale">
+          <span>Tam geri</span><span>Nötr</span><span>Tam ileri</span>
+        </div>
+
+        <div class="buttons">
+          <button id="reverse" disabled>Geri test</button>
+          <button id="neutral" disabled>Nötr</button>
+          <button id="forward" disabled>İleri test</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>ESC değerleri</h2>
+        <div class="grid">
+          <div>
+            <label for="minPwm">Minimum PWM</label>
+            <input
+              id="minPwm"
+              type="number"
+              value="1000"
+              min="500"
+              max="2500"
+            />
+          </div>
+          <div>
+            <label for="neutralPwm">Nötr PWM</label>
+            <input
+              id="neutralPwm"
+              type="number"
+              value="1500"
+              min="500"
+              max="2500"
+            />
+          </div>
+          <div>
+            <label for="maxPwm">Maksimum PWM</label>
+            <input
+              id="maxPwm"
+              type="number"
+              value="2000"
+              min="500"
+              max="2500"
+            />
+          </div>
+          <div>
+            <label for="deadband">Nötr ölü bölge ±µs</label>
+            <input id="deadband" type="number" value="30" min="0" max="300" />
+          </div>
+          <div>
+            <label for="testOffset">Test hızı farkı (µs)</label>
+            <input
+              id="testOffset"
+              type="number"
+              value="100"
+              min="1"
+              max="500"
+            />
+          </div>
+          <div>
+            <label for="sendDelay">Gönderim aralığı (ms)</label>
+            <input
+              id="sendDelay"
+              type="number"
+              value="50"
+              min="20"
+              max="1000"
+            />
+          </div>
+        </div>
+        <p class="muted">
+          Değerleri değiştirince slider aralığı otomatik güncellenir.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>Seri kayıt</h2>
+        <pre id="log">Panel hazır.</pre>
+      </div>
+
+      <div class="panel warning">
+        İlk testte pervane/kaplin sökülmüş olsun. ESC ile Arduino GND ortak
+        olmalı.
+      </div>
+    </div>
+
+    <script>
+      let port = null
+      let writer = null
+      let reader = null
+      let readLoopActive = false
+      let lastSentAt = 0
+
+      const $ = (id) => document.getElementById(id)
+      const statusEl = $('status')
+      const slider = $('slider')
+      const logEl = $('log')
+
+      function log(text) {
+        const time = new Date().toLocaleTimeString()
+        logEl.textContent += `\n[${time}] ${text}`
+        logEl.scrollTop = logEl.scrollHeight
+      }
+
+      function getSettings() {
+        return {
+          min: Number($('minPwm').value),
+          neutral: Number($('neutralPwm').value),
+          max: Number($('maxPwm').value),
+          deadband: Number($('deadband').value),
+          testOffset: Number($('testOffset').value),
+          sendDelay: Number($('sendDelay').value),
+        }
+      }
+
+      function updateSliderRange() {
+        const s = getSettings()
+        slider.min = s.min
+        slider.max = s.max
+
+        let v = Number(slider.value)
+        if (v < s.min || v > s.max) v = s.neutral
+        slider.value = v
+        updateDisplay(v)
+      }
+
+      function updateDisplay(value) {
+        const s = getSettings()
+        $('pwmValue').textContent = `${value} µs`
+
+        if (Math.abs(value - s.neutral) <= s.deadband) {
+          $('direction').textContent = 'NÖTR'
+        } else if (value > s.neutral) {
+          const pct = Math.round(
+            ((value - s.neutral) / (s.max - s.neutral)) * 100,
+          )
+          $('direction').textContent =
+            `İLERİ %${Math.max(0, Math.min(100, pct))}`
+        } else {
+          const pct = Math.round(
+            ((s.neutral - value) / (s.neutral - s.min)) * 100,
+          )
+          $('direction').textContent =
+            `GERİ %${Math.max(0, Math.min(100, pct))}`
+        }
+      }
+
+      async function sendPwm(value, force = false) {
+        if (!writer) return
+
+        const s = getSettings()
+        value = Math.max(s.min, Math.min(s.max, Math.round(value)))
+
+        const now = Date.now()
+        if (!force && now - lastSentAt < s.sendDelay) return
+        lastSentAt = now
+
+        await writer.write(new TextEncoder().encode(`${value}\n`))
+        updateDisplay(value)
+      }
+
+      async function connectSerial() {
+        if (!('serial' in navigator)) {
+          alert('Web Serial desteklenmiyor. Chrome veya Edge kullan.')
+          return
+        }
+
+        try {
+          port = await navigator.serial.requestPort()
+          await port.open({ baudRate: 115200 })
+
+          writer = port.writable.getWriter()
+          statusEl.textContent = 'USB bağlı'
+          statusEl.classList.add('ok')
+
+          $('connect').disabled = true
+          $('disconnect').disabled = false
+          $('stop').disabled = false
+          slider.disabled = false
+          $('reverse').disabled = false
+          $('neutral').disabled = false
+          $('forward').disabled = false
+
+          log('Seri bağlantı açıldı: 115200 baud')
+
+          readLoopActive = true
+          readSerial()
+
+          const neutral = getSettings().neutral
+          slider.value = neutral
+          await sendPwm(neutral, true)
+        } catch (err) {
+          log(`Bağlantı hatası: ${err.message}`)
+        }
+      }
+
+      async function readSerial() {
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        try {
+          reader = port.readable.getReader()
+
+          while (readLoopActive) {
+            const { value, done } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop()
+
+            for (const line of lines) {
+              if (line.trim()) log(`Arduino: ${line.trim()}`)
+            }
+          }
+        } catch (err) {
+          if (readLoopActive) log(`Okuma hatası: ${err.message}`)
+        } finally {
+          if (reader) {
+            reader.releaseLock()
+            reader = null
+          }
+        }
+      }
+
+      async function disconnectSerial() {
+        try {
+          if (writer) {
+            await sendPwm(getSettings().neutral, true)
+            writer.releaseLock()
+            writer = null
+          }
+
+          readLoopActive = false
+
+          if (reader) {
+            try {
+              await reader.cancel()
+            } catch {}
+          }
+
+          if (port) {
+            await port.close()
+            port = null
+          }
+        } catch (err) {
+          log(`Kapatma hatası: ${err.message}`)
+        }
+
+        statusEl.textContent = 'Bağlı değil'
+        statusEl.classList.remove('ok')
+        $('connect').disabled = false
+        $('disconnect').disabled = true
+        $('stop').disabled = true
+        slider.disabled = true
+        $('reverse').disabled = true
+        $('neutral').disabled = true
+        $('forward').disabled = true
+        log('Bağlantı kapatıldı.')
+      }
+
+      $('connect').addEventListener('click', connectSerial)
+      $('disconnect').addEventListener('click', disconnectSerial)
+
+      slider.addEventListener('input', async () => {
+        const value = Number(slider.value)
+        updateDisplay(value)
+        await sendPwm(value)
+      })
+
+      $('neutral').addEventListener('click', async () => {
+        const v = getSettings().neutral
+        slider.value = v
+        await sendPwm(v, true)
+      })
+
+      $('stop').addEventListener('click', async () => {
+        const v = getSettings().neutral
+        slider.value = v
+        await sendPwm(v, true)
+        log('ACİL NÖTR gönderildi.')
+      })
+
+      $('forward').addEventListener('click', async () => {
+        const s = getSettings()
+        const v = Math.min(s.max, s.neutral + s.testOffset)
+        slider.value = v
+        await sendPwm(v, true)
+      })
+
+      $('reverse').addEventListener('click', async () => {
+        const s = getSettings()
+        const v = Math.max(s.min, s.neutral - s.testOffset)
+        slider.value = v
+        await sendPwm(v, true)
+      })
+
+      ;[
+        'minPwm',
+        'neutralPwm',
+        'maxPwm',
+        'deadband',
+        'testOffset',
+        'sendDelay',
+      ].forEach((id) => $(id).addEventListener('change', updateSliderRange))
+
+      window.addEventListener('beforeunload', () => {
+        if (writer) {
+          writer.write(new TextEncoder().encode(`${getSettings().neutral}\n`))
+        }
+      })
+
+      updateSliderRange()
+    </script>
+  </body>
+</html>
